@@ -16,7 +16,14 @@ pyautogui.FAILSAFE = False
 
 print("MAIN START")
 
-cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+# ================== CAMERA SETUP (ปรับให้ลื่นขึ้น) ==================
+cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+cap.set(cv2.CAP_PROP_FPS, 60)
+cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
 if not cap.isOpened():
     print("❌ เปิดกล้องไม่ได้")
     input("ENTER TO EXIT")
@@ -28,7 +35,7 @@ mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(
     static_image_mode=False,
     max_num_hands=1,
-    model_complexity=1,
+    model_complexity=0,  # ปรับให้เร็วขึ้น
     min_detection_confidence=0.7,
     min_tracking_confidence=0.7
 )
@@ -42,10 +49,10 @@ last_click_time = 0
 click_delay = 0.6
 
 prev_x, prev_y = 0, 0
-smoothening = 5
+smoothening = 7  # เพิ่มความลื่น
 
-scroll_mode = False
 prev_scroll_y = 0
+prev_time = 0
 
 # ================== LOOP ==================
 while True:
@@ -55,6 +62,10 @@ while True:
         break
 
     img = cv2.flip(img, 1)
+
+    # ลด noise ทำให้ landmark นิ่งขึ้น
+    img = cv2.GaussianBlur(img, (5, 5), 0)
+
     h, w, _ = img.shape
 
     rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -80,7 +91,6 @@ while True:
                             cv2.FONT_HERSHEY_SIMPLEX, 1,
                             (0, 0, 255), 2)
 
-            # ================== ถ้าไม่กำมือ ==================
             if not fist:
 
                 ix = int(lm[8].x * w)
@@ -95,7 +105,7 @@ while True:
                 tx = int(lm[4].x * w)
                 ty = int(lm[4].y * h)
 
-                # ===== Smooth Move =====
+                # ===== Smooth Mouse Movement =====
                 screen_x = screen_w * lm[8].x
                 screen_y = screen_h * lm[8].y
 
@@ -142,6 +152,15 @@ while True:
                     prev_scroll_y = 0
 
             mp_draw.draw_landmarks(img, hand, mp_hands.HAND_CONNECTIONS)
+
+    # ===== FPS COUNTER =====
+    curr_time = time.time()
+    fps = 1 / (curr_time - prev_time) if curr_time != prev_time else 0
+    prev_time = curr_time
+
+    cv2.putText(img, f"FPS: {int(fps)}", (500, 40),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.8,
+                (0, 255, 0), 2)
 
     cv2.imshow("AI Virtual Mouse PRO", img)
 
